@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROFORMA INVOICE 生成器</title>
+    <!-- 稳定CDN加载PDF生成库 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        /* 全局强制字体要求 */
+        body {
+            font-family: 'Times New Roman', serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+
+        /* 输入区域样式 */
+        .input-panel {
+            max-width: 1600px;
+            margin: 0 auto 30px;
+            padding: 24px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .input-section {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .input-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .input-section h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        .input-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .input-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        .input-item.full-width {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        .input-item label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #444;
+        }
+        .input-item input, .input-item textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-family: 'Times New Roman', serif;
+            font-size: 10pt;
+        }
+        .input-item textarea {
+            min-height: 100px;
+            resize: vertical;
+            white-space: pre-wrap;
+        }
+        .input-item input:focus, .input-item textarea:focus {
+            outline: none;
+            border-color: #6495ED;
+        }
+        .input-item input[type="file"] {
+            padding: 6px;
+            font-size: 10pt;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Times New Roman', serif;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #6495ED;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #4a7bcd;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: #fff;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: #fff;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        /* 产品行输入项 */
+        .product-row-input {
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        .product-row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .product-row-header h4 {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .photo-preview-small {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .photo-preview-small img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            padding: 4px;
+            background: #fff;
+        }
+
+        /* 发票预览区域 */
+        .invoice-container {
+            max-width: 260mm;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        #invoice-preview {
+            width: 100%;
+            min-height: 297mm;
+            font-family: 'Times New Roman', serif;
+            background: #ffffff;
+            padding: 0;
+        }
+
+        /* 全包裹表格 */
+        .invoice-wrapper-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .invoice-wrapper-table td {
+            border: 1px solid #000;
+            padding: 0;
+            vertical-align: top;
+        }
+
+        /* 1-6行固定头部 - 每行独立边框 */
+        .header-line {
+            text-align: center;
+            font-size: 14px;
+            color: #000;
+            line-height: 1.4;
+            padding: 4px 0;
+            border-bottom: 1px solid #000;
+        }
+        .header-line:last-child {
+            border-bottom: none;
+            font-weight: bold;
+        }
+
+        /* TO行样式 - 中间竖线 */
+        .invoice-meta-row {
+            display: table;
+            width: 100%;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .invoice-to, .invoice-no-date {
+            display: table-cell;
+            width: 50%;
+            padding: 8px 10px;
+            vertical-align: top;
+        }
+        .invoice-to {
+            text-align: left;
+            border-right: 1px solid #000;
+        }
+        .invoice-no-date {
+            text-align: right;
+        }
+
+        /* 核心表格样式 */
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .invoice-table th, .invoice-table td {
+            border: 1px solid #000;
+            padding: 6px 4px;
+            text-align: center;
+            vertical-align: middle;
+            word-break: break-word;
+        }
+        /* 表头样式 */
+        .invoice-table thead th {
+            font-family: 'Times New Roman', serif;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background-color: #B8D4F8;
+        }
+        /* 产品行样式 */
+        .invoice-table tbody td {
+            font-family: 'Times New Roman', serif;
+            font-size: 12px;
+            height: 80px;
+        }
+        /* 列宽精准调整 */
+        .col-no { width: 3%; }
+        .col-photo { width: 10%; }
+        .col-model { width: 7%; }
+        .col-desc { width: 13%; white-space: nowrap; } /* 加宽，确保内容完整不换行 */
+        .col-color { width: 5%; }
+        .col-thick { width: 7.5%; }
+        .col-spec { width: 16%; } /* 微调平衡总宽度 */
+        .col-qty { width: 6%; }
+        .col-unitcbm { width: 5%; } /* 缩窄，适配换行表头 */
+        .col-totalcbm { width: 7.5%; }
+        .col-price { width: 7.5%; }
+        .col-totalprice { width: 8%; }
+
+        /* 图片容器 */
+        .photo-box {
+            width: 100%;
+            min-height: 70px;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+        .photo-box img {
+            max-width: 100%;
+            max-height: 70px;
+            object-fit: contain;
+        }
+        .seal-box {
+            width: 100%;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 10px;
+        }
+        .seal-box img {
+            max-width: 100%;
+            max-height: 100px;
+            object-fit: contain;
+        }
+
+        /* 汇总行样式 */
+        .total-row td {
+            font-family: 'Times New Roman', serif;
+            font-size: 14px;
+            font-weight: bold;
+            height: 40px;
+        }
+
+        /* 备注行 */
+        .remark-row {
+            padding: 4px 10px;
+            font-family: 'Times New Roman', serif;
+            font-size: 12px;
+            line-height: 1.2;
+            text-align: left;
+            min-height: 20px;
+            white-space: pre-wrap;
+        }
+
+        /* 银行信息行 */
+        .bank-section {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px;
+            font-family: 'Times New Roman', serif;
+            font-size: 14px;
+            line-height: 1.5;
+            text-align: left;
+        }
+        .bank-details {
+            width: 65%;
+        }
+        .seal-area {
+            width: 30%;
+        }
+
+        /* 签字栏 */
+        .sign-section {
+            display: flex;
+            width: 100%;
+        }
+        .sign-box {
+            width: 50%;
+            border: 1px solid #000;
+            padding: 10px 10px 40px;
+            font-family: 'Times New Roman', serif;
+            font-size: 14px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <!-- 输入控制面板 -->
+    <div class="input-panel">
+        <div class="input-section">
+            <h3>发票基础信息</h3>
+            <div class="input-row">
+                <div class="input-item">
+                    <label for="invoiceNo">合同号 INVOICE NO.</label>
+                    <input type="text" id="invoiceNo" placeholder="例如：PI20240501">
+                </div>
+                <div class="input-item">
+                    <label for="invoiceDate">合同日期 DATE</label>
+                    <input type="text" id="invoiceDate" placeholder="例如：2024-05-01">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-item full-width">
+                    <label for="customerInfo">客户信息 TO:</label>
+                    <textarea id="customerInfo" rows="3" placeholder="客户公司名称、地址、联系方式等"></textarea>
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-item">
+                    <label for="qtyUnit">数量计量单位（QTY列括号内）</label>
+                    <input type="text" id="qtyUnit" value="PCS" placeholder="例如：PCS、SET">
+                </div>
+                <div class="input-item">
+                    <label for="priceUnit">币种单位（PRICE列括号内）</label>
+                    <input type="text" id="priceUnit" value="USD" placeholder="例如：USD、EUR">
+                </div>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <h3>产品信息管理</h3>
+            <div id="product-input-container">
+                <!-- 产品行输入项 动态生成 -->
+            </div>
+            <button class="btn btn-primary" id="addProductBtn">+ 新增产品行</button>
+        </div>
+
+        <div class="input-section">
+            <h3>其他信息</h3>
+            <div class="input-row">
+                <div class="input-item full-width">
+                    <label for="remarkContent">自定义备注行内容</label>
+                    <textarea id="remarkContent" rows="2" placeholder="例如：付款条件、交货期、港口信息等"></textarea>
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-item">
+                    <label for="companySeal">公司公章上传</label>
+                    <input type="file" id="companySeal" accept="image/*">
+                </div>
+                <div class="input-item full-width">
+                    <label for="buyerInfo">买方信息（The Buyer下方）</label>
+                    <textarea id="buyerInfo" rows="2" placeholder="买方公司名称"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" id="exportPdfBtn">直接下载PDF文件</button>
+            <button class="btn btn-secondary" id="resetBtn">重置所有内容</button>
+        </div>
+    </div>
+
+    <!-- 发票预览区域 -->
+    <div class="invoice-container">
+        <div id="invoice-preview">
+            <table class="invoice-wrapper-table">
+                <tbody>
+                    <!-- 1-6行固定头部 -->
+                    <tr><td class="header-line">LUOYANG CHANGYUAN IMPORT AND EXPORT TRADING CO., LTD</td></tr>
+                    <tr><td class="header-line">Office Address: Yawei New Times Mansion 2712, Xigong District, Luoyang City, Henan Province, China</td></tr>
+                    <tr><td class="header-line">Factory Address: Koudian Industrial Park, Yibin District, Luoyang city ,Henan Province, China</td></tr>
+                    <tr><td class="header-line">Tel: 86-379-60609216  Mob :+86 15139936266  Lisa</td></tr>
+                    <tr><td class="header-line">Email:lisaluo51@outlook.com</td></tr>
+                    <tr><td class="header-line">PROFORMA INVOICE</td></tr>
+                    
+                    <!-- 第7行 TO和合同号日期 -->
+                    <tr>
+                        <td>
+                            <div class="invoice-meta-row">
+                                <div class="invoice-to">
+                                    To:<br>
+                                    <span id="preview-customerInfo"></span>
+                                </div>
+                                <div class="invoice-no-date">
+                                    Invoice NO.: <span id="preview-invoiceNo"></span><br>
+                                    DATE: <span id="preview-invoiceDate"></span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- 第8行 表头 + 产品表格 -->
+                    <tr>
+                        <td>
+                            <table class="invoice-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-no">No</th>
+                                        <th class="col-photo">PHOTO</th>
+                                        <th class="col-model">Model No</th>
+                                        <th class="col-desc">DESCRIPTION<br>(H*W*D)</th>
+                                        <th class="col-color">COLOUR</th>
+                                        <th class="col-thick">THICKNESS (mm)</th>
+                                        <th class="col-spec">Specification</th>
+                                        <th class="col-qty">QTY (<span id="preview-qtyUnit">PCS</span>)</th>
+                                        <th class="col-unitcbm">UNIT<br>CBM</th> <!-- 表头换行显示 -->
+                                        <th class="col-totalcbm">TOTAL CBM</th>
+                                        <th class="col-price">PRICE (<span id="preview-priceUnit">USD</span>)</th>
+                                        <th class="col-totalprice">TOTAL PRICE (<span id="preview-priceUnitTotal">USD</span>)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="product-table-body">
+                                    <!-- 产品行 动态生成 -->
+                                </tbody>
+                                <tfoot>
+                                    <!-- 汇总行 -->
+                                    <tr class="total-row">
+                                        <td colspan="7">TOTAL</td>
+                                        <td id="total-qty"></td>
+                                        <td></td>
+                                        <td id="total-cbm"></td>
+                                        <td></td>
+                                        <td id="total-price"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- 自定义备注行 -->
+                    <tr>
+                        <td>
+                            <div class="remark-row" id="preview-remarkContent"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- 银行信息 + 公章位 -->
+                    <tr>
+                        <td>
+                            <div class="bank-section">
+                                <div class="bank-details">
+                                    BANK DETAILS:<br>
+                                    Name: LUOYANG CHANGYUAN IMPORT AND EXPORT TRADING CO., LTD<br>
+                                    Account with Bank: Agricultural Bank Of China Luoyang branch<br>
+                                    Bank Address: NO. 59 KAI XUAN ROAD, LUOYANG, HENAN, CHINA<br>
+                                    Beneficiary Account number: 161 5511 404 0002877<br>
+                                    SWIFT CODE: ABOCCNBJ160
+                                </div>
+                                <div class="seal-area">
+                                    <div class="seal-box">
+                                        <img id="preview-seal" src="" alt="">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- 签字栏 -->
+            <div class="sign-section">
+                <div class="sign-box">
+                    The Seller<br><br>
+                    LUOYANG CHANGYUAN IMPORT AND EXPORT TRADING CO., LTD
+                </div>
+                <div class="sign-box">
+                    The Buyer<br><br>
+                    <span id="preview-buyerInfo"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局产品数据
+        let productList = [];
+        let productIdCounter = 0;
+
+        // 基础信息实时同步
+        const baseFields = [
+            'invoiceNo', 'invoiceDate', 'customerInfo', 
+            'qtyUnit', 'priceUnit', 'remarkContent', 'buyerInfo'
+        ];
+        baseFields.forEach(field => {
+            const input = document.getElementById(field);
+            const preview = document.getElementById(`preview-${field}`);
+            const previewTotal = field === 'priceUnit' ? document.getElementById('preview-priceUnitTotal') : null;
+            
+            input.addEventListener('input', () => {
+                preview.textContent = input.value;
+                if (previewTotal) previewTotal.textContent = input.value;
+                renderProductTable();
+            });
+        });
+
+        // 公章上传处理
+        const sealInput = document.getElementById('companySeal');
+        const sealPreview = document.getElementById('preview-seal');
+        sealInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                sealPreview.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 新增产品行
+        function addProductRow() {
+            productIdCounter++;
+            const newProduct = {
+                id: productIdCounter,
+                photos: [],
+                modelNo: '',
+                desc: '',
+                colour: '',
+                thickness: '',
+                specification: '',
+                qty: 0,
+                unitCbm: 0,
+                price: 0,
+                totalCbm: 0,
+                totalPrice: 0
+            };
+            productList.push(newProduct);
+            renderProductInput();
+            renderProductTable();
+        }
+
+        // 删除产品行
+        function deleteProductRow(id) {
+            productList = productList.filter(item => item.id !== id);
+            renderProductInput();
+            renderProductTable();
+        }
+
+        // 处理Specification自动编号
+        function formatSpecification(text) {
+            if (!text || text.trim() === '') return '';
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            return lines.map((line, index) => `${index + 1}. ${line.trim()}`).join('\n');
+        }
+
+        // 渲染产品输入项
+        function renderProductInput() {
+            const container = document.getElementById('product-input-container');
+            container.innerHTML = '';
+
+            productList.forEach((product, index) => {
+                const productDiv = document.createElement('div');
+                productDiv.className = 'product-row-input';
+                productDiv.innerHTML = `
+                    <div class="product-row-header">
+                        <h4>产品 ${index + 1}</h4>
+                        <button class="btn btn-danger delete-product-btn" data-id="${product.id}">删除此行</button>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>产品图片（支持多选）</label>
+                            <input type="file" class="product-photo" data-id="${product.id}" accept="image/*" multiple>
+                            <div class="photo-preview-small" id="photo-preview-${product.id}">
+                                ${product.photos.map((photo, i) => `<img src="${photo}" alt="图${i+1}">`).join('')}
+                            </div>
+                        </div>
+                        <div class="input-item">
+                            <label>型号 Model No</label>
+                            <input type="text" class="product-model" data-id="${product.id}" value="${product.modelNo}">
+                        </div>
+                        <div class="input-item">
+                            <label>尺寸 DESCRIPTION (H*W*D)</label>
+                            <input type="text" class="product-desc" data-id="${product.id}" value="${product.desc}" placeholder="例如：100*200*300">
+                        </div>
+                        <div class="input-item">
+                            <label>颜色 COLOUR</label>
+                            <input type="text" class="product-color" data-id="${product.id}" value="${product.colour}">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>厚度 THICKNESS (mm)</label>
+                            <input type="text" class="product-thick" data-id="${product.id}" value="${product.thickness}">
+                        </div>
+                        <div class="input-item full-width">
+                            <label>详细规格 Specification（按Enter换行，自动编号）</label>
+                            <textarea class="product-spec" data-id="${product.id}" placeholder="每一行输入一个规格，按Enter换行，自动生成数字编号">${product.specification}</textarea>
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>数量 QTY</label>
+                            <input type="number" class="product-qty" data-id="${product.id}" value="${product.qty || ''}" min="0" step="1">
+                        </div>
+                        <div class="input-item">
+                            <label>单个体积 UNIT CBM</label>
+                            <input type="number" class="product-unitcbm" data-id="${product.id}" value="${product.unitCbm || ''}" min="0" step="0.0001">
+                        </div>
+                        <div class="input-item">
+                            <label>单价 PRICE</label>
+                            <input type="number" class="product-price" data-id="${product.id}" value="${product.price || ''}" min="0" step="0.001">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(productDiv);
+            });
+
+            // 绑定删除事件
+            document.querySelectorAll('.delete-product-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = parseInt(btn.getAttribute('data-id'));
+                    deleteProductRow(id);
+                });
+            });
+
+            // 绑定产品输入事件
+            bindProductInputEvents();
+        }
+
+        // 绑定产品输入事件和自动计算
+        function bindProductInputEvents() {
+            // 文本输入同步
+            const textFields = [
+                { className: 'product-model', field: 'modelNo' },
+                { className: 'product-desc', field: 'desc' },
+                { className: 'product-color', field: 'colour' },
+                { className: 'product-thick', field: 'thickness' }
+            ];
+
+            textFields.forEach(({ className, field }) => {
+                document.querySelectorAll(`.${className}`).forEach(input => {
+                    input.addEventListener('input', () => {
+                        const id = parseInt(input.getAttribute('data-id'));
+                        const product = productList.find(item => item.id === id);
+                        if (product) {
+                            product[field] = input.value;
+                            renderProductTable();
+                        }
+                    });
+                });
+            });
+
+            // Specification特殊处理
+            document.querySelectorAll('.product-spec').forEach(textarea => {
+                textarea.addEventListener('input', () => {
+                    const id = parseInt(textarea.getAttribute('data-id'));
+                    const product = productList.find(item => item.id === id);
+                    if (product) {
+                        product.specification = textarea.value;
+                        renderProductTable();
+                    }
+                });
+            });
+
+            // 数字输入+自动计算（保留3位小数）
+            const numberFields = [
+                { className: 'product-qty', field: 'qty' },
+                { className: 'product-unitcbm', field: 'unitCbm' },
+                { className: 'product-price', field: 'price' }
+            ];
+
+            numberFields.forEach(({ className, field }) => {
+                document.querySelectorAll(`.${className}`).forEach(input => {
+                    input.addEventListener('input', () => {
+                        const id = parseInt(input.getAttribute('data-id'));
+                        const product = productList.find(item => item.id === id);
+                        if (product) {
+                            const value = parseFloat(input.value) || 0;
+                            product[field] = value;
+                            product.totalCbm = product.qty * product.unitCbm;
+                            product.totalPrice = product.qty * product.price;
+                            renderProductTable();
+                            updateTotal();
+                        }
+                    });
+                });
+            });
+
+            // 多图片上传事件
+            document.querySelectorAll('.product-photo').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const id = parseInt(input.getAttribute('data-id'));
+                    const files = Array.from(e.target.files);
+                    if (!files.length) return;
+                    
+                    const product = productList.find(item => item.id === id);
+                    if (!product) return;
+
+                    product.photos = [];
+                    let loadedCount = 0;
+
+                    files.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            product.photos.push(event.target.result);
+                            loadedCount++;
+                            if (loadedCount === files.length) {
+                                renderProductInput();
+                                renderProductTable();
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                });
+            });
+        }
+
+        // 渲染产品表格行
+        function renderProductTable() {
+            const tbody = document.getElementById('product-table-body');
+            tbody.innerHTML = '';
+
+            productList.forEach((product, index) => {
+                const tr = document.createElement('tr');
+                const photosHtml = product.photos.map(photo => `<img src="${photo}" alt="">`).join('');
+                const formattedSpec = formatSpecification(product.specification);
+
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <div class="photo-box">
+                            ${photosHtml}
+                        </div>
+                    </td>
+                    <td>${product.modelNo}</td>
+                    <td>Size: ${product.desc} mm</td>
+                    <td>${product.colour}</td>
+                    <td>${product.thickness}</td>
+                    <td style="text-align: left; white-space: pre-wrap; padding-left: 8px;">${formattedSpec}</td>
+                    <td>${product.qty || ''}</td>
+                    <td>${product.unitCbm ? product.unitCbm.toFixed(3) : ''}</td>
+                    <td>${product.totalCbm ? product.totalCbm.toFixed(3) : ''}</td>
+                    <td>${product.price ? product.price.toFixed(3) : ''}</td>
+                    <td>${product.totalPrice ? product.totalPrice.toFixed(3) : ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            updateTotal();
+        }
+
+        // 更新汇总行数据
+        function updateTotal() {
+            let totalQty = 0;
+            let totalCbm = 0;
+            let totalPrice = 0;
+
+            productList.forEach(product => {
+                totalQty += product.qty || 0;
+                totalCbm += product.totalCbm || 0;
+                totalPrice += product.totalPrice || 0;
+            });
+
+            document.getElementById('total-qty').textContent = totalQty;
+            document.getElementById('total-cbm').textContent = totalCbm.toFixed(3);
+            document.getElementById('total-price').textContent = totalPrice.toFixed(3);
+        }
+
+        // PDF下载功能
+        document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+            const invoiceElement = document.getElementById('invoice-preview');
+            const invoiceNo = document.getElementById('invoiceNo').value || '未编号';
+            const invoiceDate = document.getElementById('invoiceDate').value || '';
+            const fileName = `形式发票_${invoiceNo}${invoiceDate ? '_' + invoiceDate : ''}.pdf`;
+
+            try {
+                // 检查库是否加载成功
+                if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+                    alert('PDF生成库加载中，请检查网络连接后刷新页面重试');
+                    return;
+                }
+
+                // 等待所有图片加载完成
+                const images = invoiceElement.querySelectorAll('img');
+                const imageLoadPromises = Array.from(images).map(img => {
+                    if (!img.src) return Promise.resolve();
+                    return new Promise((resolve, reject) => {
+                        if (img.complete) resolve();
+                        img.onload = resolve;
+                        img.onerror = reject;
+                    });
+                });
+                await Promise.all(imageLoadPromises);
+
+                // 生成高清Canvas
+                const canvas = await html2canvas(invoiceElement, {
+                    scale: 2,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    logging: false,
+                    allowTaint: true
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = canvas.width / 2;
+                const imgHeight = canvas.height / 2;
+
+                // A3横向适配加宽版面
+                const pdf = new jspdf.jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: 'a3'
+                });
+
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+                const finalWidth = imgWidth * ratio;
+                const finalHeight = imgHeight * ratio;
+
+                pdf.addImage(
+                    imgData,
+                    'PNG',
+                    (pageWidth - finalWidth) / 2,
+                    (pageHeight - finalHeight) / 2,
+                    finalWidth,
+                    finalHeight
+                );
+
+                pdf.save(fileName);
+
+            } catch (err) {
+                console.error('PDF生成失败详情：', err);
+                alert('PDF生成失败，请确保网络连接正常，或使用浏览器「打印 -> 另存为PDF」功能');
+            }
+        });
+
+        // 重置按钮
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('确定要重置所有内容吗？')) {
+                location.reload();
+            }
+        });
+
+        // 初始化：默认添加3行产品
+        window.onload = () => {
+            addProductRow();
+            addProductRow();
+            addProductRow();
+        };
+    </script>
+</body>
+</html>
